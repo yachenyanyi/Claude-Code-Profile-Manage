@@ -1,10 +1,11 @@
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use crossterm::event::{self, Event, KeyCode, KeyEventKind, MouseEvent, MouseEventKind};
 use ratatui::Terminal;
 
 use crate::config::profile::Profile;
 use crate::config::store::{Config, Store};
 use crate::shell::generator::Generator;
+use std::process::Command;
 
 use super::form::{FormField, FormState};
 use super::ui;
@@ -258,6 +259,22 @@ impl App {
                     self.mode = AppMode::ConfirmDelete(self.selected);
                 }
             }
+            KeyCode::Char('y') => {
+                self.remap_selected_if_filtered();
+                if let Some(p) = self.current_profile() {
+                    let mut lines: Vec<String> = p.vars.iter()
+                        .map(|(k, v)| format!("export {}='{}'", k, v.replace('\'', "'\\''")))
+                        .collect();
+                    lines.sort();
+                    let text = lines.join("\n");
+                    let copied = copy_to_clipboard(&text);
+                    if copied {
+                        self.status_message = Some(format!("配置「{}」的环境变量已复制到剪贴板", p.name));
+                    } else {
+                        self.status_message = Some("复制失败: 请安装 xclip 或 wl-copy".to_string());
+                    }
+                }
+            }
             KeyCode::Char('a') => {
                 self.form_state = FormState::empty();
                 self.mode = AppMode::Adding;
@@ -409,14 +426,74 @@ impl App {
         loop {
             terminal.draw(|f| self.render(f))?;
 
-            if let Event::Key(key) = event::read()? {
-                if key.kind == KeyEventKind::Press {
-                    if !self.handle_key(key.code)? {
-                        break;
+            match event::read()? {
+                Event::Key(key) => {
+                    if key.kind == KeyEventKind::Press {
+                        if !self.handle_key(key.code)? {
+                            break;
+                        }
                     }
                 }
+                Event::Mouse(mouse) => {
+                    self.handle_mouse(mouse);
+                }
+                _ => {}
             }
         }
         Ok(())
     }
+
+    /// 处理鼠标事件
+    fn handle_mouse(&mut self, mouse: MouseEvent) {
+        // 表单模式下滚轮滚动环境变量列表
+        if matches!(self.mode, AppMode::Adding | AppMode::Editing(_)) {
+            match mouse.kind {
+                MouseEventKind::ScrollUp => {
+                    if self.form_state.var_scroll > 0 {
+                        self.form_state.var_scroll -= 1;
+                    }
+                }
+                MouseEventKind::ScrollDown => {
+                    let total = self.form_state.vars.len();
+                    let max_visible = 5; // 粗略估计，渲染时会精确调整
+                    if self.form_state.var_scroll + max_visible < total {
+                        self.form_state.var_scroll += 1;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+}
+
+/// 将文本复制到系统剪贴板
+fn copy_to_clipboard(text: &str) -> bool {
+    // 尝试 xclip (X11)
+    if let Ok(mut child) = Command::new("xclip")
+        .args(["-selection", "clipboard"])
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+    {
+        if let Some(mut stdin) = child.stdin.take() {
+            use std::io::Write;
+            let _ = stdin.write_all(text.as_bytes());
+            let _ = stdin.flush();
+        }
+        return child.wait().is_ok();
+    }
+
+    // 尝试 wl-copy (Wayland)
+    if let Ok(mut child) = Command::new("wl-copy")
+        .stdin(std::process::Stdio::piped())
+        .spawn()
+    {
+        if let Some(mut stdin) = child.stdin.take() {
+            use std::io::Write;
+            let _ = stdin.write_all(text.as_bytes());
+            let _ = stdin.flush();
+        }
+        return child.wait().is_ok();
+    }
+
+    false
 }

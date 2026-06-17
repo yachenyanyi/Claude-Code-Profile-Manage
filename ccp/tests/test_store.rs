@@ -1,5 +1,5 @@
-use ccp::config::store::{Config, Store};
-use ccp::config::profile::Profile;
+use ccpm::config::store::{Config, Store};
+use ccpm::config::profile::Profile;
 use tempfile::tempdir;
 
 #[test]
@@ -50,5 +50,5 @@ fn test_store_load_missing_file_returns_empty() {
 #[test]
 fn test_store_default_path() {
     let store = Store::new();
-    assert!(store.path().to_string_lossy().contains("ccp/profiles.toml"));
+    assert!(store.path().to_string_lossy().contains("ccpm/profiles.toml"));
 }

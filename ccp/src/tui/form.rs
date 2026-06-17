@@ -26,6 +26,7 @@ pub struct FormState {
     pub group: String,
     pub vars: Vec<(String, String)>,  // (key, value)
     pub field_focus: FormField,
+    pub var_scroll: usize,  // 环境变量列表滚动偏移
 }
 
 impl FormState {
@@ -38,16 +39,35 @@ impl FormState {
             group: p.group.clone().unwrap_or_default(),
             vars,
             field_focus: FormField::Name,
+            var_scroll: 0,
         }
     }
 
-    /// 空白表单状态（添加模式）
+    /// 预设的环境变量键名（添加模式自动填充）
+    const PRESET_VAR_KEYS: &[&'static str] = &[
+        "ANTHROPIC_AUTH_TOKEN",
+        "ANTHROPIC_BASE_URL",
+        "ANTHROPIC_MODEL",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+        "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL",
+        "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL",
+        "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME",
+    ];
+
+    /// 空白表单状态（添加模式），预设常用键名
     pub fn empty() -> Self {
+        let vars: Vec<(String, String)> = Self::PRESET_VAR_KEYS
+            .iter()
+            .map(|k| (k.to_string(), String::new()))
+            .collect();
         Self {
             name: String::new(),
             group: String::new(),
-            vars: vec![(String::new(), String::new())],  // 默认一行空变量
+            vars,
             field_focus: FormField::Name,
+            var_scroll: 0,
         }
     }
 
@@ -77,10 +97,10 @@ impl FormState {
 }
 
 /// 渲染添加/编辑表单
-pub fn render_form(f: &mut Frame, area: Rect, app: &App) {
+pub fn render_form(f: &mut Frame, area: Rect, app: &mut App) {
     let form_state = match &app.mode {
-        AppMode::Adding => &app.form_state,
-        AppMode::Editing(_) => &app.form_state,
+        AppMode::Adding => &mut app.form_state,
+        AppMode::Editing(_) => &mut app.form_state,
         _ => return,
     };
 
@@ -145,22 +165,41 @@ pub fn render_form(f: &mut Frame, area: Rect, app: &App) {
     let vars_inner = vars_block.inner(chunks[2]);
     f.render_widget(vars_block, chunks[2]);
 
-    // 每个变量占一行
-    let mut var_rows = Vec::new();
-    for (i, (key, val)) in form_state.vars.iter().enumerate() {
-        let key_focused = form_state.field_focus == FormField::VarKey(i);
-        let val_focused = form_state.field_focus == FormField::VarValue(i);
+    // 计算可见变量数: 每个变量 3 行 (key + value + 空行), 底部加一行 "添加环境变量"
+    let vars_inner_h = vars_inner.height as usize;
+    let max_visible = if vars_inner_h > 1 {
+        (vars_inner_h.saturating_sub(1)) / 3
+    } else {
+        0
+    };
 
-        let key_display = if key.is_empty() {
-            Span::raw("(输入变量名)")
-        } else {
-            Span::raw(key)
-        };
-        let val_display = if val.is_empty() {
-            Span::raw("(输入值)")
-        } else {
-            Span::raw(val)
-        };
+    // 自动滚动: 确保焦点所在的变量可见
+    match &form_state.field_focus {
+        FormField::VarKey(i) | FormField::VarValue(i) => {
+            if *i < form_state.var_scroll {
+                form_state.var_scroll = *i;
+            } else if *i >= form_state.var_scroll + max_visible && max_visible > 0 {
+                form_state.var_scroll = *i - max_visible + 1;
+            }
+        }
+        FormField::AddVar => {
+            // AddVar 焦点时滚动到末尾
+            let total_vars = form_state.vars.len();
+            if total_vars > 0 && form_state.var_scroll + max_visible <= total_vars {
+                form_state.var_scroll = total_vars.saturating_sub(max_visible);
+            }
+        }
+        _ => {}
+    }
+
+    // 只渲染可见范围内的变量
+    let mut var_rows = Vec::new();
+    let start = form_state.var_scroll;
+    let end = std::cmp::min(start.saturating_add(max_visible), form_state.vars.len());
+    for (i, (key, val)) in form_state.vars[start..end].iter().enumerate() {
+        let abs_i = start + i;
+        let key_focused = form_state.field_focus == FormField::VarKey(abs_i);
+        let val_focused = form_state.field_focus == FormField::VarValue(abs_i);
 
         let key_style = if key_focused {
             Style::default().bg(Color::Blue).fg(Color::White)
@@ -173,14 +212,34 @@ pub fn render_form(f: &mut Frame, area: Rect, app: &App) {
             Style::default()
         };
 
+        // 变量名行
+        let key_display = if key.is_empty() {
+            Span::styled("(输入变量名, 例如 ANTHROPIC_MODEL)", Style::default().fg(Color::DarkGray))
+        } else {
+            Span::styled(format!(" {}", key), key_style)
+        };
         var_rows.push(Line::from(vec![
-            Span::styled(format!("  {}. ", i + 1), Style::default().fg(Color::DarkGray)),
-            Span::styled("KEY: ", Style::default().fg(Color::Gray)),
-            Span::styled(key_display.to_string(), key_style),
+            Span::styled(format!(" {}. ╶╴", abs_i + 1), Style::default().fg(Color::DarkGray)),
+            Span::styled("KEY", Style::default().fg(Color::Cyan)),
             Span::raw("  "),
-            Span::styled("VAL: ", Style::default().fg(Color::Gray)),
-            Span::styled(val_display.to_string(), val_style),
+            key_display,
         ]));
+
+        // 值行
+        let val_display = if val.is_empty() {
+            Span::styled("(输入值)", Style::default().fg(Color::DarkGray))
+        } else {
+            Span::styled(format!(" {}", val), val_style)
+        };
+        var_rows.push(Line::from(vec![
+            Span::raw("     "),
+            Span::styled("VAL", Style::default().fg(Color::Cyan)),
+            Span::raw("  "),
+            val_display,
+        ]));
+
+        // 变量间空行
+        var_rows.push(Line::from(""));
     }
 
     // 添加新变量行

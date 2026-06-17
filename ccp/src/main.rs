@@ -1,5 +1,5 @@
 use anyhow::Result;
-use ccp::tui::app::App;
+use ccpm::tui::app::App;
 use ratatui::backend::CrosstermBackend;
 use std::io::stdout;
 
@@ -12,8 +12,8 @@ fn main() -> Result<()> {
             "list" => cmd_list()?,
             other => {
                 eprintln!("未知子命令: {other}");
-                eprintln!("用法: ccp        # 打开 TUI");
-                eprintln!("      ccp list   # 列出配置");
+                eprintln!("用法: ccpm       # 打开 TUI");
+                eprintln!("      ccpm list  # 列出配置");
                 std::process::exit(1);
             }
         }
@@ -36,12 +36,14 @@ fn run_tui() -> Result<()> {
     }
 
     crossterm::terminal::enable_raw_mode()?;
-    let mut terminal = ratatui::Terminal::new(CrosstermBackend::new(stdout()))?;
     crossterm::execute!(std::io::stdout(), crossterm::terminal::EnterAlternateScreen)?;
+    crossterm::execute!(std::io::stdout(), crossterm::event::EnableMouseCapture)?;
+    let mut terminal = ratatui::Terminal::new(CrosstermBackend::new(stdout()))?;
 
     let result = app.run(&mut terminal);
 
     crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen)?;
+    crossterm::execute!(std::io::stdout(), crossterm::event::DisableMouseCapture)?;
     crossterm::terminal::disable_raw_mode()?;
 
     result?;
@@ -50,11 +52,11 @@ fn run_tui() -> Result<()> {
 }
 
 fn cmd_list() -> Result<()> {
-    let store = ccp::config::store::Store::new();
+    let store = ccpm::config::store::Store::new();
     let config = store.load()?;
 
     if config.profiles.is_empty() {
-        println!("暂无配置。运行 ccp 打开 TUI 添加配置。");
+        println!("暂无配置。运行 ccpm 打开 TUI 添加配置。");
         return Ok(());
     }
 

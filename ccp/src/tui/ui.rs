@@ -25,17 +25,17 @@ pub fn render(f: &mut Frame, app: &mut App) {
     // 顶部标题
     let title = if app.searching {
         Line::from(vec![
-            Span::raw(" ccp — Claude Code Profiles  "),
+            Span::raw(" ccpm — Claude Code Profile Manager  "),
             Span::styled(format!("/{}", app.search_query), Style::default().fg(Color::Yellow)),
             Span::styled(" (按 Enter 确认, Esc 取消)", Style::default().fg(Color::DarkGray)),
         ])
     } else if let Some(msg) = &app.status_message {
         Line::from(vec![
-            Span::raw(" ccp — Claude Code Profiles  "),
+            Span::raw(" ccpm — Claude Code Profile Manager  "),
             Span::styled(msg.as_str(), Style::default().fg(Color::Yellow)),
         ])
     } else {
-        Line::from(Span::raw(" ccp — Claude Code Profiles"))
+        Line::from(Span::raw(" ccpm — Claude Code Profile Manager"))
     };
     f.render_widget(Paragraph::new(title).style(Style::default().fg(Color::Cyan)), title_area[0]);
 
@@ -48,7 +48,7 @@ pub fn render(f: &mut Frame, app: &mut App) {
     // 底部操作栏
     let help_text = match app.mode {
         AppMode::Normal => {
-            " Tab:切换焦点  ↑↓:选择  e:编辑  a:新增  Space:启用/禁用  d:删除  /:搜索  ?:帮助  q:退出 "
+            " Tab:切换焦点  ↑↓:选择  e:编辑  a:新增  y:复制  Space:启用/禁用  d:删除  /:搜索  ?:帮助  q:退出 "
         }
         AppMode::Adding | AppMode::Editing(_) => {
             " Tab:切换字段  Enter:保存  Esc:取消 "
@@ -115,14 +115,15 @@ fn render_help(f: &mut Frame, area: Rect) {
         Line::from(vec![Span::styled("e", Style::default().fg(Color::Yellow)), Span::raw(" — 编辑选中配置")]),
         Line::from(vec![Span::styled("d", Style::default().fg(Color::Yellow)), Span::raw(" — 删除选中配置")]),
         Line::from(vec![Span::styled("Space", Style::default().fg(Color::Yellow)), Span::raw(" — 启用/禁用")]),
+        Line::from(vec![Span::styled("y", Style::default().fg(Color::Yellow)), Span::raw(" — 复制环境变量到剪贴板")]),
         Line::from(vec![Span::styled("Tab", Style::default().fg(Color::Yellow)), Span::raw(" — 切换焦点面板")]),
         Line::from(vec![Span::styled("↑/↓", Style::default().fg(Color::Yellow)), Span::raw(" — 上/下选择")]),
         Line::from(vec![Span::styled("/", Style::default().fg(Color::Yellow)), Span::raw(" — 搜索")]),
         Line::from(vec![Span::styled("q / Esc", Style::default().fg(Color::Yellow)), Span::raw(" — 退出/取消")]),
         Line::from(""),
         Line::from(Span::styled("配置说明:", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))),
-        Line::from("在 TUI 中编辑配置后，系统自动同步到 ~/.local/bin/ccp-<name>"),
-        Line::from("之后在终端中直接使用 ccp-<name> 命令启动 Claude Code"),
+        Line::from("在 TUI 中编辑配置后，系统自动同步到 ~/.local/bin/ccpm-<name>"),
+        Line::from("之后在终端中直接使用 ccpm-<name> 命令启动 Claude Code"),
     ]);
 
     let block = Clear;

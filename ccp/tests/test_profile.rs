@@ -1,4 +1,4 @@
-use ccp::config::profile::Profile;
+use ccpm::config::profile::Profile;
 
 #[test]
 fn test_profile_new() {

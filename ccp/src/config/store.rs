@@ -26,11 +26,11 @@ pub struct Store {
 }
 
 impl Store {
-    /// 使用默认路径创建 Store：~/.config/ccp/profiles.toml
+    /// 使用默认路径创建 Store：~/.config/ccpm/profiles.toml
     pub fn new() -> Self {
         let path = dirs::config_dir()
             .unwrap_or_else(|| PathBuf::from("~/.config"))
-            .join("ccp")
+            .join("ccpm")
             .join("profiles.toml");
         Self { path }
     }

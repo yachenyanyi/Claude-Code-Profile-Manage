@@ -1,7 +1,7 @@
-use ccp::config::profile::Profile;
-use ccp::config::store::Store;
-use ccp::shell::generator::Generator;
-use ccp::tui::app::{App, AppMode, Focus};
+use ccpm::config::profile::Profile;
+use ccpm::config::store::Store;
+use ccpm::shell::generator::Generator;
+use ccpm::tui::app::{App, AppMode, Focus};
 use tempfile::tempdir;
 
 fn setup_app() -> (App, tempfile::TempDir) {

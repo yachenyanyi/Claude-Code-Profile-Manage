@@ -116,7 +116,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "ccp"
+name = "ccpm"
 version = "0.1.0"
 dependencies = [
  "anyhow",
@@ -126,6 +126,7 @@ dependencies = [
  "dirs",
  "ratatui",
  "serde",
+ "serde_json",
  "tempfile",
  "toml",
 ]

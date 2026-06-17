@@ -1,7 +1,8 @@
-use ccp::config::profile::Profile;
-use ccp::config::store::Config;
-use ccp::shell::generator::Generator;
+use ccpm::config::profile::Profile;
+use ccpm::config::store::Config;
+use ccpm::shell::generator::Generator;
 use tempfile::tempdir;
+use std::path::PathBuf;
 
 fn make_profile(name: &str, enabled: bool) -> Profile {
     let mut p = Profile::new(name.to_string());
@@ -11,13 +12,21 @@ fn make_profile(name: &str, enabled: bool) -> Profile {
     p
 }
 
+fn bin_dir(dir: &tempfile::TempDir) -> PathBuf {
+    dir.path().join("bin")
+}
+
+fn homes_dir(dir: &tempfile::TempDir) -> PathBuf {
+    dir.path().join("homes")
+}
+
 #[test]
 fn test_generator_script_content() {
     let p = make_profile("deepseek", true);
     let script = p.to_script();
     assert!(script.starts_with("#!/bin/bash"));
     assert!(script.contains("export ANTHROPIC_BASE_URL='https://example.com/api'"));
-    assert!(script.contains("exec claude \"$@\""));
+    assert!(script.contains("exec claude --model 'test-model' \"$@\""));
 }
 
 #[test]
@@ -32,35 +41,39 @@ fn test_generator_script_quotes_special_chars() {
 #[test]
 fn test_generator_creates_files() {
     let dir = tempdir().unwrap();
-    let gen = Generator::with_dir(dir.path().to_path_buf());
+    let gen = Generator::with_dirs(bin_dir(&dir), homes_dir(&dir));
 
     let p = make_profile("deepseek", true);
     gen.install(&p).unwrap();
 
-    let script_path = dir.path().join("ccp-deepseek");
+    let script_path = bin_dir(&dir).join("ccpm-deepseek");
     assert!(script_path.exists());
 
     let content = std::fs::read_to_string(&script_path).unwrap();
-    assert!(content.contains("exec claude \"$@\""));
+    // HOME 隔离 + export + exec 的基本格式
+    assert!(content.contains("export HOME="));
+    assert!(content.contains("export ANTHROPIC_BASE_URL='https://example.com/api'"));
+    assert!(content.contains("export ANTHROPIC_MODEL='test-model'"));
+    assert!(content.contains("exec claude"));
 }
 
 #[test]
 fn test_generator_removes_disabled() {
     let dir = tempdir().unwrap();
-    let gen = Generator::with_dir(dir.path().to_path_buf());
+    let gen = Generator::with_dirs(bin_dir(&dir), homes_dir(&dir));
 
     let p = make_profile("deepseek", true);
     gen.install(&p).unwrap();
-    assert!(dir.path().join("ccp-deepseek").exists());
+    assert!(bin_dir(&dir).join("ccpm-deepseek").exists());
 
     gen.remove("deepseek").unwrap();
-    assert!(!dir.path().join("ccp-deepseek").exists());
+    assert!(!bin_dir(&dir).join("ccpm-deepseek").exists());
 }
 
 #[test]
 fn test_generator_sync_enables_and_disables() {
     let dir = tempdir().unwrap();
-    let gen = Generator::with_dir(dir.path().to_path_buf());
+    let gen = Generator::with_dirs(bin_dir(&dir), homes_dir(&dir));
 
     let p1 = make_profile("enabled-one", true);
     let p2 = make_profile("disabled-one", false);
@@ -69,26 +82,28 @@ fn test_generator_sync_enables_and_disables() {
     gen.sync(&config).unwrap();
 
     // 启用的应该存在
-    assert!(dir.path().join("ccp-enabled-one").exists());
+    assert!(bin_dir(&dir).join("ccpm-enabled-one").exists());
     // 禁用的不应该存在
-    assert!(!dir.path().join("ccp-disabled-one").exists());
+    assert!(!bin_dir(&dir).join("ccpm-disabled-one").exists());
 }
 
 #[test]
 fn test_generator_sync_removes_stale() {
     let dir = tempdir().unwrap();
-    let gen = Generator::with_dir(dir.path().to_path_buf());
+    let bdir = bin_dir(&dir);
+    std::fs::create_dir_all(&bdir).unwrap();
+    let gen = Generator::with_dirs(bdir.clone(), homes_dir(&dir));
 
     // 先创建一个旧配置的脚本
-    std::fs::write(dir.path().join("ccp-stale"), "old").unwrap();
-    std::fs::write(dir.path().join("ccp-deepseek"), "old").unwrap();
+    std::fs::write(bdir.join("ccpm-stale"), "old").unwrap();
+    std::fs::write(bdir.join("ccpm-deepseek"), "old").unwrap();
 
     let p = make_profile("deepseek", true);
     let config = Config { profiles: vec![p] };
     gen.sync(&config).unwrap();
 
     // stale 被清理
-    assert!(!dir.path().join("ccp-stale").exists());
+    assert!(!bdir.join("ccpm-stale").exists());
     // deepseek 被更新
-    assert!(dir.path().join("ccp-deepseek").exists());
+    assert!(bdir.join("ccpm-deepseek").exists());
 }
