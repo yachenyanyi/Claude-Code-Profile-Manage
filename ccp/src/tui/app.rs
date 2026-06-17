@@ -12,6 +12,8 @@ use crate::config::profile::Profile;
 use crate::config::store::{Config, Store};
 use crate::shell::generator::Generator;
 
+use super::ui;
+
 /// TUI 模式
 #[derive(Debug, Clone, PartialEq)]
 pub enum AppMode {
@@ -167,14 +169,8 @@ impl App {
     }
 
     /// 渲染用户界面
-    pub fn render(&self, f: &mut ratatui::Frame) {
-        // Placeholder — full TUI rendering implemented in a later task
-        let area = f.area();
-        let text = Text::from("ccp — Claude Code Profiles\n\nPress 'q' to quit");
-        let paragraph = Paragraph::new(text)
-            .block(Block::default().borders(Borders::ALL).title("ccp"))
-            .alignment(ratatui::layout::Alignment::Center);
-        f.render_widget(paragraph, area);
+    pub fn render(&mut self, f: &mut ratatui::Frame) {
+        ui::render(f, self);
     }
 
     /// 运行 TUI 主循环
