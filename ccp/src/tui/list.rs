@@ -28,8 +28,12 @@ pub fn render_list(f: &mut Frame, area: Rect, profiles: &[&Profile], selected: u
                     Style::default().fg(if p.enabled { Color::White } else { Color::DarkGray }),
                 ),
                 Span::styled(
-                    format!(" ({})", p.vars.get("ANTHROPIC_MODEL").map_or("?", |s| {
-                        if s.len() > 20 { &s[..20] } else { s }
+                    format!(" ({})", p.vars.get("ANTHROPIC_MODEL").map_or("?".to_string(), |s| {
+                        if s.chars().count() > 20 {
+                            s.chars().take(20).collect::<String>()
+                        } else {
+                            s.clone()
+                        }
                     })),
                     Style::default().fg(Color::DarkGray),
                 ),

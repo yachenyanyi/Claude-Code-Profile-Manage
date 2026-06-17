@@ -229,7 +229,7 @@ impl App {
         }
 
         match key {
-            KeyCode::Char('q') | KeyCode::Esc => return Ok(false),
+            KeyCode::Char('q') => return Ok(false),
             KeyCode::Char('?') => self.mode = AppMode::Help,
             KeyCode::Char('/') => {
                 self.searching = true;
@@ -248,8 +248,12 @@ impl App {
                     self.selected += 1;
                 }
             }
-            KeyCode::Char(' ') => self.toggle_enabled()?,
+            KeyCode::Char(' ') => {
+                self.remap_selected_if_filtered();
+                self.toggle_enabled()?;
+            }
             KeyCode::Char('d') => {
+                self.remap_selected_if_filtered();
                 if !self.config.profiles.is_empty() {
                     self.mode = AppMode::ConfirmDelete(self.selected);
                 }
@@ -259,6 +263,7 @@ impl App {
                 self.mode = AppMode::Adding;
             }
             KeyCode::Char('e') => {
+                self.remap_selected_if_filtered();
                 if let Some(p) = self.current_profile() {
                     self.form_state = FormState::from_profile(p);
                     self.mode = AppMode::Editing(self.selected);
@@ -267,6 +272,36 @@ impl App {
             _ => {}
         }
         Ok(true)
+    }
+
+    /// 当搜索激活时，如果当前选中的 profile 不在过滤结果中，
+    /// 将选中索引重映射到第一个可见的 profile。
+    fn remap_selected_if_filtered(&mut self) {
+        if self.searching && !self.search_query.is_empty() {
+            let filtered_names: Vec<String> = self
+                .filtered_profiles()
+                .iter()
+                .map(|p| p.name.clone())
+                .collect();
+            let visible = self
+                .config
+                .profiles
+                .get(self.selected)
+                .map(|p| filtered_names.contains(&p.name))
+                .unwrap_or(false);
+            if !visible {
+                if let Some(first) = filtered_names.first() {
+                    if let Some(idx) = self
+                        .config
+                        .profiles
+                        .iter()
+                        .position(|p| &p.name == first)
+                    {
+                        self.selected = idx;
+                    }
+                }
+            }
+        }
     }
 
     // ----- 表单模式按键处理 -----

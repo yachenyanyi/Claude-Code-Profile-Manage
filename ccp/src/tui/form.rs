@@ -71,6 +71,7 @@ impl FormState {
             Some(self.group.trim().to_string())
         };
         p.vars = vars;
+        p.validate().map_err(|e| e.to_string())?;
         Ok(p)
     }
 }

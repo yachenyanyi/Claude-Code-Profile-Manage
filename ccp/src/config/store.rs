@@ -1,6 +1,7 @@
 use super::profile::Profile;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 
 /// 顶层配置结构
@@ -69,6 +70,8 @@ impl Store {
             toml::to_string_pretty(config).with_context(|| "序列化配置失败")?;
         std::fs::write(&self.path, &content)
             .with_context(|| format!("写入配置文件失败: {}", self.path.display()))?;
+        std::fs::set_permissions(&self.path, std::fs::Permissions::from_mode(0o600))
+            .with_context(|| format!("设置配置文件权限失败: {}", self.path.display()))?;
         Ok(())
     }
 }

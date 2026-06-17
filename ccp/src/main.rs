@@ -4,7 +4,7 @@ use ratatui::backend::CrosstermBackend;
 use std::io::stdout;
 
 fn main() -> Result<()> {
-    let _ = color_eyre::install();
+    color_eyre::install().map_err(|e| anyhow::anyhow!("color_eyre 初始化失败: {e}"))?;
 
     let args: Vec<String> = std::env::args().collect();
     if args.len() > 1 {
@@ -44,9 +44,7 @@ fn run_tui() -> Result<()> {
     crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen)?;
     crossterm::terminal::disable_raw_mode()?;
 
-    if let Err(e) = result {
-        eprintln!("错误: {e}");
-    }
+    result?;
 
     Ok(())
 }

@@ -71,15 +71,11 @@ impl Generator {
             .with_context(|| format!("创建目录失败: {}", self.bin_dir.display()))?;
 
         // 为启用的 profile 生成脚本
-        let active_names: std::collections::HashSet<String> = config
-            .profiles
-            .iter()
-            .filter(|p| p.enabled)
-            .map(|p| {
-                self.install(p).expect("安装脚本失败");
-                format!("ccp-{}", p.name)
-            })
-            .collect();
+        let mut active_names: std::collections::HashSet<String> = std::collections::HashSet::new();
+        for p in config.profiles.iter().filter(|p| p.enabled) {
+            self.install(p)?;
+            active_names.insert(format!("ccp-{}", p.name));
+        }
 
         // 清理 stale 脚本（不在配置中的 ccp-* 文件）
         if let Ok(entries) = std::fs::read_dir(&self.bin_dir) {

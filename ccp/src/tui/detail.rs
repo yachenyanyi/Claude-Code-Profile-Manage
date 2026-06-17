@@ -61,8 +61,14 @@ pub fn render_detail(f: &mut Frame, area: Rect, profile: Option<&Profile>) {
                 let val = &p.vars[*k];
                 // 隐藏 API Key 部分内容
                 let masked = if k.contains("TOKEN") || k.contains("KEY") || k.contains("SECRET") {
-                    if val.len() > 8 {
-                        format!("{}****{}", &val[..4], &val[val.len()-4..])
+                    let char_count = val.chars().count();
+                    if char_count > 8 {
+                        let prefix: String = val.chars().take(4).collect();
+                        let suffix: String = {
+                            let rev: String = val.chars().rev().take(4).collect();
+                            rev.chars().rev().collect()
+                        };
+                        format!("{}****{}", prefix, suffix)
                     } else {
                         "****".to_string()
                     }
