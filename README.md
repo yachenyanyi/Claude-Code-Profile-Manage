@@ -4,14 +4,17 @@
 
 ## 快速安装
 
-### 方式一：下载预编译包（最快）
+### 方式一：从 GitHub Release 下载（推荐）
+
+从 [Releases](https://github.com/yachenyanyi/Claude-Code-Profile-Manage/releases) 下载最新版，有 Linux x86_64、ARM64、Windows 版本：
 
 ```bash
-wget -O ~/.local/bin/ccpm https://raw.githubusercontent.com/yachenyanyi/Claude-Code-Profile-Manage/main/dist/ccpm
+# Linux x86_64
+wget -O ~/.local/bin/ccpm https://github.com/yachenyanyi/Claude-Code-Profile-Manage/releases/latest/download/ccpm-linux-x86_64
 chmod +x ~/.local/bin/ccpm
 ```
 
-或从 GitHub Release 下载：[releases](https://github.com/yachenyanyi/Claude-Code-Profile-Manage/releases)
+> 手动打标签 `v*` 即可触发 CI 自动构建 Release。
 
 ### 方式二：一键安装脚本
 
