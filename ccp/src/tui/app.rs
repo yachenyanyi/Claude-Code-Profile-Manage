@@ -45,6 +45,10 @@ pub struct App {
     pub status_message: Option<String>,
     /// 表单状态（添加/编辑时使用）
     pub form_state: FormState,
+    /// 搜索关键字
+    pub search_query: String,
+    /// 是否在搜索模式
+    pub searching: bool,
 
     // 内部依赖
     store: Store,
@@ -65,6 +69,8 @@ impl App {
             focus: Focus::List,
             status_message: None,
             form_state: FormState::empty(),
+            search_query: String::new(),
+            searching: false,
             store,
             generator,
         })
@@ -80,9 +86,31 @@ impl App {
             focus: Focus::List,
             status_message: None,
             form_state: FormState::empty(),
+            search_query: String::new(),
+            searching: false,
             store,
             generator,
         })
+    }
+
+    /// 获取过滤后的配置
+    pub fn filtered_profiles(&self) -> Vec<&Profile> {
+        if self.search_query.is_empty() {
+            self.config.profiles.iter().collect()
+        } else {
+            let q = self.search_query.to_lowercase();
+            self.config
+                .profiles
+                .iter()
+                .filter(|p| {
+                    p.name.to_lowercase().contains(&q)
+                        || p.group.as_deref().unwrap_or("").to_lowercase().contains(&q)
+                        || p.vars.iter().any(|(k, v)| {
+                            k.to_lowercase().contains(&q) || v.to_lowercase().contains(&q)
+                        })
+                })
+                .collect()
+        }
     }
 
     /// 获取当前选中的 profile
@@ -185,9 +213,28 @@ impl App {
 
     // ----- Normal 模式按键处理 -----
     fn handle_normal_key(&mut self, key: KeyCode) -> Result<bool> {
+        // 搜索模式下的字符输入处理
+        if self.searching {
+            match key {
+                KeyCode::Char(c) => self.search_query.push(c),
+                KeyCode::Backspace => { self.search_query.pop(); }
+                KeyCode::Esc => {
+                    self.searching = false;
+                    self.search_query.clear();
+                }
+                KeyCode::Enter => { self.searching = false; }
+                _ => {}
+            }
+            return Ok(true);
+        }
+
         match key {
             KeyCode::Char('q') | KeyCode::Esc => return Ok(false),
             KeyCode::Char('?') => self.mode = AppMode::Help,
+            KeyCode::Char('/') => {
+                self.searching = true;
+                self.search_query.clear();
+            }
             KeyCode::Tab => self.toggle_focus(),
             KeyCode::Up | KeyCode::Char('k') => {
                 if self.focus == Focus::List && self.selected > 0 {

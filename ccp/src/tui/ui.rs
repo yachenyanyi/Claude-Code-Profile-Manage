@@ -23,13 +23,16 @@ pub fn render(f: &mut Frame, app: &mut App) {
         .split(area);
 
     // 顶部标题
-    let title = if app.status_message.is_some() {
+    let title = if app.searching {
         Line::from(vec![
             Span::raw(" ccp — Claude Code Profiles  "),
-            Span::styled(
-                app.status_message.as_ref().unwrap(),
-                Style::default().fg(Color::Yellow),
-            ),
+            Span::styled(format!("/{}", app.search_query), Style::default().fg(Color::Yellow)),
+            Span::styled(" (按 Enter 确认, Esc 取消)", Style::default().fg(Color::DarkGray)),
+        ])
+    } else if let Some(msg) = &app.status_message {
+        Line::from(vec![
+            Span::raw(" ccp — Claude Code Profiles  "),
+            Span::styled(msg.as_str(), Style::default().fg(Color::Yellow)),
         ])
     } else {
         Line::from(Span::raw(" ccp — Claude Code Profiles"))
@@ -86,8 +89,19 @@ pub fn render(f: &mut Frame, app: &mut App) {
                 .constraints([Constraint::Percentage(35), Constraint::Percentage(65)])
                 .split(main_chunks[0]);
 
-            render_list(f, panels[0], &app.config.profiles, app.selected);
-            render_detail(f, panels[1], app.current_profile());
+            let filtered = app.filtered_profiles();
+            let display_selected = filtered
+                .iter()
+                .position(|p| {
+                    app.config
+                        .profiles
+                        .get(app.selected)
+                        .map_or(false, |s| s.name == p.name)
+                })
+                .unwrap_or(0);
+
+            render_list(f, panels[0], &filtered, display_selected);
+            render_detail(f, panels[1], filtered.get(display_selected).copied());
         }
     }
 }

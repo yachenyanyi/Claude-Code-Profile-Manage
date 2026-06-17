@@ -8,8 +8,8 @@ use ratatui::{
 
 use crate::config::profile::Profile;
 
-/// 渲染左侧配置列表
-pub fn render_list(f: &mut Frame, area: Rect, profiles: &[Profile], selected: usize) {
+/// 渲染左侧配置列表（支持过滤后的视图）
+pub fn render_list(f: &mut Frame, area: Rect, profiles: &[&Profile], selected: usize) {
     let items: Vec<ListItem> = profiles
         .iter()
         .enumerate()
