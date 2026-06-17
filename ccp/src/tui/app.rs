@@ -120,8 +120,7 @@ impl App {
     pub fn add_profile(&mut self, profile: Profile) -> Result<()> {
         // 检查重名
         if self.config.profiles.iter().any(|p| p.name == profile.name) {
-            self.status_message = Some(format!("配置「{}」已存在", profile.name));
-            return Ok(());
+            anyhow::bail!("配置「{}」已存在", profile.name);
         }
         self.config.profiles.push(profile);
         self.selected = self.config.profiles.len() - 1;
@@ -134,8 +133,7 @@ impl App {
         if index < self.config.profiles.len() {
             // 检查重名（排除自身）
             if self.config.profiles.iter().enumerate().any(|(i, p)| p.name == profile.name && i != index) {
-                self.status_message = Some(format!("配置「{}」已存在", profile.name));
-                return Ok(());
+                anyhow::bail!("配置「{}」已存在", profile.name);
             }
             self.config.profiles[index] = profile;
             self.sync()?;
