@@ -4,15 +4,31 @@
 
 ## 快速安装
 
+### 方式一：下载预编译包（最快）
+
 ```bash
-# 依赖: Rust (https://rustup.rs)
+wget -O ~/.local/bin/ccpm https://raw.githubusercontent.com/yachenyanyi/Claude-Code-Profile-Manage/main/ccp/dist/ccpm
+chmod +x ~/.local/bin/ccpm
+```
+
+或从 GitHub Release 下载：[releases](https://github.com/yachenyanyi/Claude-Code-Profile-Manage/releases)
+
+### 方式二：一键安装脚本
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/yachenyanyi/Claude-Code-Profile-Manage/main/ccp/install.sh | bash
+```
+
+### 方式三：源码编译
+
+```bash
 git clone git@github.com:yachenyanyi/Claude-Code-Profile-Manage.git
 cd Claude-Code-Profile-Manage/ccp
 cargo build --release
 cp target/release/ccpm ~/.local/bin/
 ```
 
-确保 `~/.local/bin` 在 PATH 中：
+**确保 `~/.local/bin` 在 PATH 中：**
 
 ```bash
 echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
