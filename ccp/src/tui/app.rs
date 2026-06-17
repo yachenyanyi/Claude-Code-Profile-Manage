@@ -12,6 +12,7 @@ use crate::config::profile::Profile;
 use crate::config::store::{Config, Store};
 use crate::shell::generator::Generator;
 
+use super::form::{FormField, FormState};
 use super::ui;
 
 /// TUI 模式
@@ -48,6 +49,8 @@ pub struct App {
     pub focus: Focus,
     /// 状态信息
     pub status_message: Option<String>,
+    /// 表单状态（添加/编辑时使用）
+    pub form_state: FormState,
 
     // 内部依赖
     store: Store,
@@ -67,6 +70,7 @@ impl App {
             mode: AppMode::Normal,
             focus: Focus::List,
             status_message: None,
+            form_state: FormState::empty(),
             store,
             generator,
         })
@@ -159,10 +163,148 @@ impl App {
         }
     }
 
-    /// 处理按键事件
+    /// 处理按键事件，返回 false 则退出循环
     pub fn handle_key(&mut self, key: KeyCode) -> Result<bool> {
+        match &self.mode.clone() {
+            AppMode::Normal => self.handle_normal_key(key),
+            AppMode::Adding | AppMode::Editing(_) => self.handle_form_key(key),
+            AppMode::ConfirmDelete(_) => self.handle_confirm_key(key),
+            AppMode::Help => {
+                self.mode = AppMode::Normal;
+                Ok(true)
+            }
+        }
+    }
+
+    // ----- Normal 模式按键处理 -----
+    fn handle_normal_key(&mut self, key: KeyCode) -> Result<bool> {
         match key {
-            KeyCode::Char('q') => return Ok(false),
+            KeyCode::Char('q') | KeyCode::Esc => return Ok(false),
+            KeyCode::Char('?') => self.mode = AppMode::Help,
+            KeyCode::Tab => self.toggle_focus(),
+            KeyCode::Up | KeyCode::Char('k') => {
+                if self.focus == Focus::List && self.selected > 0 {
+                    self.selected -= 1;
+                }
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if self.focus == Focus::List
+                    && self.selected + 1 < self.config.profiles.len()
+                {
+                    self.selected += 1;
+                }
+            }
+            KeyCode::Char(' ') => self.toggle_enabled()?,
+            KeyCode::Char('d') => {
+                if !self.config.profiles.is_empty() {
+                    self.mode = AppMode::ConfirmDelete(self.selected);
+                }
+            }
+            KeyCode::Char('a') => {
+                self.form_state = FormState::empty();
+                self.mode = AppMode::Adding;
+            }
+            KeyCode::Char('e') => {
+                if let Some(p) = self.current_profile() {
+                    self.form_state = FormState::from_profile(p);
+                    self.mode = AppMode::Editing(self.selected);
+                }
+            }
+            _ => {}
+        }
+        Ok(true)
+    }
+
+    // ----- 表单模式按键处理 -----
+    fn handle_form_key(&mut self, key: KeyCode) -> Result<bool> {
+        let form = &mut self.form_state;
+        match key {
+            KeyCode::Esc => {
+                self.mode = AppMode::Normal;
+                self.status_message = None;
+            }
+            KeyCode::Enter => {
+                // 尝试保存
+                match form.to_profile() {
+                    Ok(profile) => {
+                        let result = match &self.mode.clone() {
+                            AppMode::Adding => self.add_profile(profile),
+                            AppMode::Editing(idx) => self.update_profile(*idx, profile),
+                            _ => Ok(()),
+                        };
+                        if result.is_ok() {
+                            self.status_message = None;
+                            self.mode = AppMode::Normal;
+                        } else if let Err(e) = result {
+                            self.status_message = Some(format!("保存失败: {}", e));
+                        }
+                    }
+                    Err(e) => {
+                        self.status_message = Some(e);
+                    }
+                }
+            }
+            KeyCode::Tab => {
+                // 循环切换字段焦点
+                form.field_focus = match &form.field_focus {
+                    FormField::Name => FormField::Group,
+                    FormField::Group => {
+                        if form.vars.is_empty() {
+                            FormField::AddVar
+                        } else {
+                            FormField::VarKey(0)
+                        }
+                    }
+                    FormField::VarKey(i) => FormField::VarValue(*i),
+                    FormField::VarValue(i) => {
+                        if *i + 1 < form.vars.len() {
+                            FormField::VarKey(*i + 1)
+                        } else {
+                            FormField::AddVar
+                        }
+                    }
+                    FormField::AddVar => FormField::Name,
+                };
+            }
+            KeyCode::Backspace => {
+                // 删除当前字段的最后一个字符
+                match &form.field_focus.clone() {
+                    FormField::Name => { form.name.pop(); }
+                    FormField::Group => { form.group.pop(); }
+                    FormField::VarKey(i) => { form.vars[*i].0.pop(); }
+                    FormField::VarValue(i) => { form.vars[*i].1.pop(); }
+                    FormField::AddVar => {}
+                }
+            }
+            KeyCode::Char(c) => {
+                match &form.field_focus.clone() {
+                    FormField::Name => form.name.push(c),
+                    FormField::Group => form.group.push(c),
+                    FormField::VarKey(i) => form.vars[*i].0.push(c),
+                    FormField::VarValue(i) => form.vars[*i].1.push(c),
+                    FormField::AddVar => {
+                        if c == ' ' || c == '\t' {
+                            form.vars.push((String::new(), String::new()));
+                            form.field_focus = FormField::VarKey(form.vars.len() - 1);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+        Ok(true)
+    }
+
+    // ----- 确认删除模式按键处理 -----
+    fn handle_confirm_key(&mut self, key: KeyCode) -> Result<bool> {
+        match key {
+            KeyCode::Char('y') | KeyCode::Enter => {
+                self.delete_current()?;
+                self.mode = AppMode::Normal;
+            }
+            KeyCode::Char('n') | KeyCode::Esc => {
+                self.mode = AppMode::Normal;
+            }
             _ => {}
         }
         Ok(true)
