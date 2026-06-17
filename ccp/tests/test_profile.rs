@@ -1,5 +1,4 @@
 use ccp::config::profile::Profile;
-use std::collections::HashMap;
 
 #[test]
 fn test_profile_new() {
