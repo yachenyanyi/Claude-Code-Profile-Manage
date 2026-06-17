@@ -1,12 +1,6 @@
 use anyhow::Result;
 use crossterm::event::{self, Event, KeyCode, KeyEventKind};
-use ratatui::{
-    layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style, Stylize},
-    text::{Line, Span, Text},
-    widgets::{Block, Borders, Clear, Gauge, List, ListItem, ListState, Paragraph, Table, Tabs, Row, Cell, Wrap},
-    Terminal,
-};
+use ratatui::Terminal;
 
 use crate::config::profile::Profile;
 use crate::config::store::{Config, Store};

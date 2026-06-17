@@ -2,13 +2,12 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Borders, Clear, Paragraph, Wrap},
+    widgets::{Block, Borders, Clear, Paragraph},
     Frame,
 };
 
-use crate::config::profile::Profile;
 
-use super::app::{App, AppMode, Focus};
+use super::app::{App, AppMode};
 use super::detail::render_detail;
 use super::list::render_list;
 use super::form::render_form;
@@ -76,7 +75,7 @@ pub fn render(f: &mut Frame, app: &mut App) {
             // 帮助弹窗
             render_help(f, main_chunks[0]);
         }
-        AppMode::ConfirmDelete(index) => {
+        AppMode::ConfirmDelete(_index) => {
             // 确认删除弹窗
             render_confirm_delete(f, main_chunks[0], app);
         }
