@@ -10,17 +10,21 @@ jobs:
     name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
             suffix: ''
+            linker: ''
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             suffix: ''
+            linker: aarch64-linux-gnu-gcc
           - target: x86_64-pc-windows-gnu
             os: ubuntu-latest
             suffix: '.exe'
+            linker: x86_64-w64-mingw32-gcc
 
     steps:
       - name: Checkout
@@ -32,18 +36,28 @@ jobs:
           targets: ${{ matrix.target }}
 
       - name: Install cross-compilation dependencies
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+        if: matrix.target != 'x86_64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          case ${{ matrix.target }} in
+            aarch64-unknown-linux-gnu)
+              sudo apt-get install -y gcc-aarch64-linux-gnu
+              ;;
+            x86_64-pc-windows-gnu)
+              sudo apt-get install -y mingw-w64
+              ;;
+          esac
 
       - name: Build
         run: cargo build --release --target ${{ matrix.target }}
         env:
           CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+          CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: x86_64-w64-mingw32-gcc
 
       - name: Package binary
         run: |
           mkdir -p artifacts
-          cp target/${{ matrix.target }}/release/ccpm${{ matrix.suffix }} artifacts/
+          cp "target/${{ matrix.target }}/release/ccpm${{ matrix.suffix }}" artifacts/
           cp install.sh artifacts/
 
       - name: Upload artifact
@@ -64,28 +78,35 @@ jobs:
         with:
           path: artifacts
 
-      - name: Create release archive
+      - name: Rename binaries for release
         run: |
-          cd artifacts/ccpm-x86_64-unknown-linux-gnu
-          mv ccpm ccpm-linux-x86_64
-          mv install.sh install.sh
-          cd ../..
-          mv artifacts/ccpm-aarch64-unknown-linux-gnu/ccpm ccpm-linux-aarch64 2>/dev/null || true
-          mv artifacts/ccpm-x86_64-pc-windows-gnu/ccpm.exe ccpm-windows-x86_64.exe 2>/dev/null || true
+          mkdir -p upload
+          if [ -f artifacts/ccpm-x86_64-unknown-linux-gnu/ccpm ]; then
+            cp artifacts/ccpm-x86_64-unknown-linux-gnu/ccpm upload/ccpm-linux-x86_64
+          fi
+          if [ -f artifacts/ccpm-aarch64-unknown-linux-gnu/ccpm ]; then
+            cp artifacts/ccpm-aarch64-unknown-linux-gnu/ccpm upload/ccpm-linux-aarch64
+          fi
+          if [ -f artifacts/ccpm-x86_64-pc-windows-gnu/ccpm.exe ]; then
+            cp artifacts/ccpm-x86_64-pc-windows-gnu/ccpm.exe upload/ccpm-windows-x86_64.exe
+          fi
+          if [ -f artifacts/ccpm-x86_64-unknown-linux-gnu/install.sh ]; then
+            cp artifacts/ccpm-x86_64-unknown-linux-gnu/install.sh upload/install.sh
+          fi
 
       - name: Generate checksums
         run: |
-          cd artifacts
-          find . -type f -exec sha256sum {} \; > ../sha256sums.txt
+          cd upload
+          sha256sum * > ../sha256sums.txt
           cd ..
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/ccpm-x86_64-unknown-linux-gnu/ccpm-linux-x86_64
-            artifacts/ccpm-aarch64-unknown-linux-gnu/ccpm-linux-aarch64
-            artifacts/ccpm-x86_64-pc-windows-gnu/ccpm-windows-x86_64.exe
-            artifacts/ccpm-x86_64-unknown-linux-gnu/install.sh
+            upload/ccpm-linux-x86_64
+            upload/ccpm-linux-aarch64
+            upload/ccpm-windows-x86_64.exe
+            upload/install.sh
             sha256sums.txt
           generate_release_notes: true
