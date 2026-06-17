@@ -70,6 +70,21 @@ impl App {
         })
     }
 
+    /// 使用指定的 Store 和 Generator 创建（测试环境隔离）
+    pub fn new_with(store: Store, generator: Generator) -> Result<Self> {
+        let config = store.load()?;
+        Ok(Self {
+            config,
+            selected: 0,
+            mode: AppMode::Normal,
+            focus: Focus::List,
+            status_message: None,
+            form_state: FormState::empty(),
+            store,
+            generator,
+        })
+    }
+
     /// 获取当前选中的 profile
     pub fn current_profile(&self) -> Option<&Profile> {
         self.config.profiles.get(self.selected)
