@@ -248,23 +248,23 @@ impl App {
         match key {
             #[cfg(windows)]
             KeyCode::Char('y') | KeyCode::Char('Y') if self.needs_path_setup => {
-                // Windows 一键添加 PATH 到用户环境变量
-                use std::env;
-                if let Ok(mut path) = env::var("PATH") {
-                    let bin_dir = Generator::default_bin_dir();
-                    let bin_str = bin_dir.to_string_lossy();
-                    if !path.contains(&*bin_str) {
-                        path.push_str(&format!(";{}", bin_str));
-                        // 写入用户环境变量
-                        env::set_var("PATH", &path);
-                        // 持久化到注册表
-                        let _ = std::process::Command::new("setx")
-                            .args(["PATH", &path])
-                            .status();
-                    }
-                }
-                self.status_message = Some("✅ PATH 已添加！请重启终端生效".to_string());
-                self.needs_path_setup = false;
+                // 用 PowerShell 写入用户 PATH（避免 setx 1024 字符截断 + 合并 PATH 重复问题）
+                let bin_dir = Generator::default_bin_dir();
+                let bin_str = bin_dir.to_string_lossy().to_string();
+                let ok = std::process::Command::new("powershell")
+                    .args(["-NoProfile", "-Command",
+                        &format!("$p=[Environment]::GetEnvironmentVariable('PATH','User');if($p -notlike '*\\.local\\bin*'){[Environment]::SetEnvironmentVariable('PATH',$p+';{}','User')}", bin_str)
+                    ])
+                    .status()
+                    .map(|s| s.success())
+                    .unwrap_or(false);
+                self.status_message = if ok {
+                    self.needs_path_setup = false;
+                    Some("✅ PATH 已永久添加！请重启终端生效".to_string())
+                } else {
+                    Some("❌ 自动添加失败，请手动在 PowerShell 运行：
+    [Environment]::SetEnvironmentVariable('PATH', [Environment]::GetEnvironmentVariable('PATH','User') + ';$env:USERPROFILE\\.local\\bin', 'User')".to_string())
+                };
             }
             KeyCode::Char('q') => return Ok(false),
             KeyCode::Char('?') => self.mode = AppMode::Help,
