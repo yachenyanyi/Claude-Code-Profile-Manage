@@ -113,6 +113,10 @@ pub fn render_form(f: &mut Frame, area: Rect, app: &mut App) {
     let block = Block::default()
         .borders(Borders::ALL)
         .title(title)
+        .title_bottom(Line::from(Span::styled(
+            " 右键粘贴 / Tab切换 ",
+            Style::default().fg(Color::DarkGray).add_modifier(Modifier::DIM),
+        )))
         .border_style(Style::default().fg(Color::Cyan));
 
     let inner = block.inner(area);

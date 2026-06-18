@@ -106,12 +106,16 @@ $env:PATH += ";$env:USERPROFILE\.local\bin""#
 
     crossterm::terminal::enable_raw_mode()?;
     crossterm::execute!(std::io::stdout(), crossterm::terminal::EnterAlternateScreen)?;
+    // Windows 不开启鼠标捕获，否则无法用鼠标选择文字复制
+    // Unix 保留，因为 Shift+拖选 在 Linux 终端中能绕过捕获
+    #[cfg(unix)]
     crossterm::execute!(std::io::stdout(), crossterm::event::EnableMouseCapture)?;
     let mut terminal = ratatui::Terminal::new(CrosstermBackend::new(stdout()))?;
 
     let result = app.run(&mut terminal);
 
     crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen)?;
+    #[cfg(unix)]
     crossterm::execute!(std::io::stdout(), crossterm::event::DisableMouseCapture)?;
     crossterm::terminal::disable_raw_mode()?;
 
