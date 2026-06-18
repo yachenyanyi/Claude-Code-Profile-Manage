@@ -5,6 +5,7 @@ use ratatui::Terminal;
 use crate::config::profile::Profile;
 use crate::config::store::{Config, Store};
 use crate::shell::generator::Generator;
+#[cfg(unix)]
 use std::process::Command;
 
 use super::form::{FormField, FormState};
@@ -253,7 +254,7 @@ impl App {
                 let bin_str = bin_dir.to_string_lossy().to_string();
                 let ok = std::process::Command::new("powershell")
                     .args(["-NoProfile", "-Command",
-                        &format!("$p=[Environment]::GetEnvironmentVariable('PATH','User');if($p -notlike '*\\.local\\bin*'){[Environment]::SetEnvironmentVariable('PATH',$p+';{}','User')}", bin_str)
+                        &format!("$p=[Environment]::GetEnvironmentVariable('PATH','User');if($p -notlike '*\\.local\\bin*'){{[Environment]::SetEnvironmentVariable('PATH',$p+';{}','User')}}", bin_str)
                     ])
                     .status()
                     .map(|s| s.success())
