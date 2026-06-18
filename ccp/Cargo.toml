@@ -1,0 +1,19 @@
+[package]
+name = "ccpm"
+version = "0.1.0"
+edition = "2021"
+description = "Claude Code Profile Manager — multi-provider config manager"
+
+[dependencies]
+ratatui = "0.29"
+crossterm = "0.28"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+dirs = "6"
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+color-eyre = "0.6"
+
+[dev-dependencies]
+tempfile = "3"
