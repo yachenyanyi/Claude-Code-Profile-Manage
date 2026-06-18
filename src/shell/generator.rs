@@ -285,17 +285,37 @@ impl Generator {
         let iso_home = self.home_dir_for(profile_name);
 
         // 启动 claude
-        let status = std::process::Command::new("claude")
-            .args(passthrough_args)
-            .env("HOME", &iso_home)
-            .env("USERPROFILE", &iso_home) // Node os.homedir 优先读 USERPROFILE
-            .envs(&profile.vars)
-            .status();
+        let claude_result = self.try_launch_claude(passthrough_args, &iso_home, &profile.vars);
 
-        match status {
-            Ok(s) => s.code().unwrap_or(1),
+        match claude_result {
+            Ok(status) => status.code().unwrap_or(1),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                eprintln!("未找到 claude 命令，请先安装：npm install -g @anthropic-ai/claude-code");
+                // 没找到 claude，检查常见位置
+                #[cfg(windows)]
+                let npm_paths = [
+                    dirs::home_dir().map(|h| h.join("AppData").join("Roaming").join("npm").join("claude.cmd")),
+                    dirs::home_dir().map(|h| h.join("AppData").join("Local").join("npm").join("claude.cmd")),
+                ];
+                #[cfg(windows)]
+                {
+                    for p in npm_paths.iter().flatten() {
+                        if p.exists() {
+                            // claude 存在但不在 PATH——尝试用绝对路径启动
+                            match std::process::Command::new(p)
+                                .args(passthrough_args)
+                                .env("HOME", &iso_home)
+                                .env("USERPROFILE", &iso_home)
+                                .envs(&profile.vars)
+                                .status()
+                            {
+                                Ok(s) => return s.code().unwrap_or(1),
+                                Err(_) => continue,
+                            }
+                        }
+                    }
+                }
+                eprintln!("未找到 claude 命令，请先安装或确认 PATH：npm install -g @anthropic-ai/claude-code");
+                eprintln!("  claude 常见路径：%APPDATA%\\npm\\claude.cmd");
                 127
             }
             Err(e) => {
@@ -303,6 +323,54 @@ impl Generator {
                 1
             }
         }
+    }
+
+    /// Windows 上尝试多种方式找到 claude 并启动
+    #[cfg(windows)]
+    fn try_launch_claude(
+        &self,
+        passthrough_args: &[String],
+        iso_home: &std::path::Path,
+        vars: &std::collections::HashMap<String, String>,
+    ) -> std::io::Result<std::process::ExitStatus> {
+        let err;
+        // 尝试 claude.cmd（优先，比 .exe 更可靠）
+        match std::process::Command::new("claude.cmd")
+            .args(passthrough_args)
+            .env("HOME", &iso_home)
+            .env("USERPROFILE", &iso_home)
+            .envs(vars)
+            .status()
+        {
+            Ok(s) => return Ok(s),
+            Err(e) => err = e,
+        }
+        // 尝试 claude
+        match std::process::Command::new("claude")
+            .args(passthrough_args)
+            .env("HOME", &iso_home)
+            .env("USERPROFILE", &iso_home)
+            .envs(vars)
+            .status()
+        {
+            Ok(s) => Ok(s),
+            Err(_) => Err(err), // 返回第一个错误（一般是 NotFound）
+        }
+    }
+
+    /// Unix 上直接用 claude 名
+    #[cfg(unix)]
+    fn try_launch_claude(
+        &self,
+        passthrough_args: &[String],
+        iso_home: &std::path::Path,
+        vars: &std::collections::HashMap<String, String>,
+    ) -> std::io::Result<std::process::ExitStatus> {
+        std::process::Command::new("claude")
+            .args(passthrough_args)
+            .env("HOME", &iso_home)
+            .envs(vars)
+            .status()
     }
 
     /// 生成包装脚本
